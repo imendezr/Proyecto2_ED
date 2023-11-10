@@ -2,7 +2,7 @@
 # Estructuras de Datos
 
 # Estudiantes
-# Cristopher Chanto Chavarria / / 6pm
+# Cristopher Chanto Chavarria / 402480221 / 6pm
 # Isaac Mendez Rodriguez / / 6pm
 # Ignacio Ledezma Hidalgo / 402520080 / 8pm
 
