@@ -3,52 +3,82 @@
 
 # Estudiantes
 # Cristopher Chanto Chavarria / 402480221 / 6pm
-# Isaac Mendez Rodriguez / / 6pm
+# Isaac Mendez Rodriguez / 118090020 / 6pm
 # Ignacio Ledezma Hidalgo / 402520080 / 8pm
 
-import re
+from analizador_codigo import AnalizadorCodigo
+from utilidades import UtilidadesArchivo
 
 
-# Primer paso, leer el archivo
-def leer_archivo(file_name):
-    with open(file_name, 'r') as file:
-        contenido = file.read()
-    return contenido
+def imprimir_tabla_simbolos(tabla_simbolos):
+    """
+    Imprime el contenido de la tabla de símbolos con un formato mejorado.
+
+    Args:
+    tabla_simbolos (TablaSimbolos): La tabla de símbolos a imprimir.
+    """
+    print("\nContenido de la tabla de símbolos:")
+    for nombre, info in tabla_simbolos.simbolos.items():
+        alcance = info['alcance']
+        if isinstance(info['tipo'], dict):
+            # Es una función
+            tipo_funcion = info['tipo']['tipo']
+            print(f"Función: {nombre}, Tipo: {tipo_funcion}, Alcance: {alcance}")
+        else:
+            # Es una variable
+            tipo_variable = info['tipo']
+            print(f"Variable: {nombre}, Tipo: {tipo_variable}, Alcance: {alcance}")
 
 
-def mostrar_contenido_archivo(file_name):  # Funcion adicional, para determinar si se esta leyendo correctamente el contenido del archivo
-    try:
-        with open(file_name, 'r') as file:
-            contenido = file.read()
-            print(contenido)  # Imprima lo que tiene el archivo
-    except FileNotFoundError:
-        print(f"El archivo '{file_name}' no fue encontrado.") # Si no existe ningun archivo con ese nombre
-    except Exception as e:
-        print(f"No se pudo leer correctamente el archivo: {e}") # Si ocurre un error no contemplado
+def imprimir_resultado_busqueda(nombre, resultado):
+    """
+    Imprime el resultado de la búsqueda de un símbolo en la tabla de símbolos.
+
+    Args:
+    nombre (str): El nombre del símbolo buscado.
+    resultado (dict): El resultado de la búsqueda.
+    """
+    if resultado:
+        if isinstance(resultado['tipo'], dict):
+            tipo_funcion = resultado['tipo']['tipo']
+            print(f"Encontrado: Función '{nombre}', Tipo: {tipo_funcion}, Alcance: {resultado['alcance']}")
+        else:
+            tipo_variable = resultado['tipo']
+            print(f"Encontrado: Variable '{nombre}', Tipo: {tipo_variable}, Alcance: {resultado['alcance']}")
+    else:
+        print(f"No se encontró el símbolo '{nombre}'.")
 
 
-def obtener_tipo_funcion(file_name):  # Funcion para determinar el tipo de variable de la funcion
-    try:
-        with open(file_name, 'r') as file:
-            contenido = file.read()
+def main():
+    """
+    Función principal del programa.
 
-            match = re.search(r'\b(\w+)\s+\w+\([^)]*\)\s*{', contenido)
+    Lee un archivo de código fuente, muestra su contenido, determina el tipo de la función principal, realiza un
+    análisis de las declaraciones en el archivo y luego prueba la tabla de símbolos.
+    """
+    nombre_archivo = "Funcion3.txt"
 
-            if match:
-                tipo_funcion = match.group(1)
-                return tipo_funcion
-            else:
-                return "No se encontro el tipo de funcion"
-    except FileNotFoundError:
-        return f"El archivo '{file_name}' no existe en este contexto"
-    except Exception as e:
-        return f"No se pudo leer correctamente el archivo: {e}"
+    # Mostrar contenido para verificar la lectura correcta del archivo
+    UtilidadesArchivo.mostrar_contenido_archivo(nombre_archivo)
+
+    # Crear una instancia del AnalizadorCodigo
+    analizador = AnalizadorCodigo()
+
+    # Obtener el tipo de función del archivo y realizar análisis de declaraciones
+    tipo_funcion = analizador.obtener_tipo_funcion(nombre_archivo)
+    print("\nTipo de variable de la funcion:", tipo_funcion)
+
+    # Realizar análisis de declaraciones en el archivo
+    analizador.analizar_declaraciones(nombre_archivo)
+
+    # Imprimir el contenido de la tabla de símbolos con formato mejorado
+    imprimir_tabla_simbolos(analizador.tabla_simbolos)
+
+    # Ejemplo de búsqueda de un símbolo
+    simbolo_buscado = 'funcion'
+    resultado = analizador.tabla_simbolos.buscar_simbolo(simbolo_buscado)
+    imprimir_resultado_busqueda(simbolo_buscado, resultado)
 
 
-tipos_variables = {'void', 'int', 'float', 'string'}  # Diccionario que almacena los tipos de variables permitidos
-
-
-nombre_archivo = "Funcion3.txt"
-mostrar_contenido_archivo(nombre_archivo)
-tipo_funcion = obtener_tipo_funcion(nombre_archivo)
-print("\nTipo de variable de la funcion:", tipo_funcion)
+if __name__ == "__main__":
+    main()
