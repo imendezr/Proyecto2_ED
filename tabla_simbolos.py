@@ -4,14 +4,14 @@ class TablaSimbolos:
         self.alcance_actual = 'global'
         self.historial_alcances = [self.alcance_actual]
 
-    def agregar_simbolo(self, nombre, tipo, alcance=None):
+    def agregar_simbolo(self, nombre, tipo, alcance=None): # Metodo que agrega un simbolo a la tabla, para mantener el registro de nombres/tipos/funciones
         if alcance is None:
             alcance = self.alcance_actual
         if nombre in self.simbolos and self.simbolos[nombre]['alcance'] == alcance:
-            print(f"Advertencia: El símbolo '{nombre}' en el alcance '{alcance}' ya existe y será sobrescrito.")
+            print(f"Ya existe el simbolo '{nombre}' en '{alcance}'")
         self.simbolos[nombre] = {'tipo': tipo, 'alcance': alcance}
 
-    def buscar_simbolo(self, nombre, alcance=None):
+    def buscar_simbolo(self, nombre, alcance=None): # Busca el simbolo por medio de nombre y alcance
         if alcance is None:
             alcance = self.alcance_actual
             # Buscar en el alcance actual y luego en los globales

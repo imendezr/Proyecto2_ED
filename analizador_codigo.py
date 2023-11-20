@@ -15,56 +15,53 @@ class AnalizadorCodigo:
         self.tipo_retorno_funcion_actual = None
         self.lineas_funcion_actual = []
 
-    # Analizar el código
-    def analizar_codigo_fuente(self, file_name):
+    def analizar_codigo_fuente(self, file_name):  # Analisis semantico del archivo a leer
         self.analizar_declaraciones(file_name)
 
         if not self.errores:
-            print("No se encontraron errores en el código fuente.")
+            print("No hay errores en el codigo fuente.")
         else:
-            print("Errores encontrados en el código fuente:")
+            print("Errores encontrados en el codigo:")
             for error in self.errores:
                 print(error)
 
-    # Reportar Errores
-    def reportar_error(self, mensaje):
-        error_completo = f"Error – Línea {self.numero_linea}: {mensaje}"
+    def reportar_error(self, mensaje):  # Metodo que muestra cada linea de error que contiene un codigo provisto en formato .txt
+        error_completo = f"Error – Linea {self.numero_linea}: {mensaje}"
         self.errores.append(error_completo)
-        print(error_completo)
+        print(error_completo)  # Muestra la linea de errores como si fuera un stringstream
 
-    # Métodos Principales
-    def obtener_tipo_funcion(self, file_name):
+    def obtener_tipo_funcion(self, file_name):  # Obtiene el tipo de dato de la funcion general (basado en los 4 datos pre-establecidos)
         try:
-            contenido = UtilidadesArchivo.leer_archivo(file_name)
-            match = re.search(r'\b(\w+)\s+\w+\([^)]*\)\s*{', contenido)
+            contenido = UtilidadesArchivo.leer_archivo(file_name)  # Lee el contenido del archivo de texto
+            match = re.search(r'\b(\w+)\s+\w+\([^)]*\)\s*{', contenido)  # Expresion regular para capturar el tipo de retorno
             if match:
-                return match.group(1)
+                return match.group(1)  # Devuelve el contenido de la primera parte del codigo, que coincide con el tipo de dato de la funcion
             else:
-                return "No se encontro el tipo de funcion"
-        except FileNotFoundError:
+                return "No se pudo determinar el tipo de funcion"
+        except FileNotFoundError:  # En caso de que no exista un archivo con ese nombre
             return f"El archivo '{file_name}' no existe en este contexto"
         except Exception as e:
             return f"No se pudo leer correctamente el archivo: {e}"
 
-    def analizar_declaraciones(self, file_name):
+    def analizar_declaraciones(self, file_name):  # Lee y analiza cada linea individualmente utilizando un split, utiliza el metodo analizar_linea
         try:
             contenido = UtilidadesArchivo.leer_archivo(file_name)
             lineas = contenido.split('\n')
             for linea in lineas:
                 self.analizar_linea(linea)
         except Exception as e:
-            print(f"Error al analizar el archivo: {e}")
+            print(f"Error al tratar de analizar el archivo: {e}")
 
-    # Método central para el análisis de cada línea
+    # Metodo principal, encargado de revisar linea por linea del archivo que se le pasa en el main
     def analizar_linea(self, linea):
         self.numero_linea += 1
 
-        if not linea.strip() or linea.strip().startswith('#'):
+        if not linea.strip() or linea.strip().startswith('#'):  # Si la linea es un comentario o si esta en blanco
             return
 
-        if self.en_funcion:
+        if self.en_funcion:  # Verificar si se encuentra en el cuerpo de una funcion
             self.lineas_funcion_actual.append(linea.strip())
-            if re.match(r'^\}', linea):
+            if re.match(r'^\}', linea):  # Si encuentra una llave cerrada, significa que llego al final de la funcion
                 self.finalizar_funcion()
                 self.en_funcion = False
                 self.tipo_retorno_funcion_actual = None
@@ -72,16 +69,15 @@ class AnalizadorCodigo:
             else:
                 self.analizar_estructura_control(linea)
                 self.analizar_asignacion(linea)
-        else:
+        else:  # Si no esta en el cuerpo de una funcion, esta leyendo fuera de una funcion (ejemplo para variables globales)
             tipo_retorno = self.analizar_declaracion_funcion(linea)
             if tipo_retorno:
                 self.en_funcion = True
-                self.tipo_retorno_funcion_actual = tipo_retorno
+                self.tipo_retorno_funcion_actual = tipo_retorno  # Almacena el tipo de dato de la funcion
                 self.lineas_funcion_actual = [linea.strip()]
 
-            self.analizar_declaracion_variable(linea)
+            self.analizar_declaracion_variable(linea)  # Analiza las variables existentes en el codigo
 
-    # Análisis Específico de Componentes
     def analizar_estructura_control(self, linea):
         condicion_match = re.search(r'if\s*\((.*)\)\s*{', linea) or re.search(r'while\s*\((.*)\)\s*{', linea)
         if condicion_match:
@@ -225,5 +221,3 @@ class AnalizadorCodigo:
         if simbolo and simbolo['tipo'] != tipo:
             self.reportar_error(
                 f"Tipo incorrecto para la variable '{nombre}'. Esperado: {tipo}, encontrado: {simbolo['tipo']}.")
-
-    # ... (Otros métodos de verificación y detección de errores si son necesarios)
