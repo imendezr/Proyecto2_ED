@@ -28,7 +28,7 @@ class AnalizadorCodigo:
 
     # Reportar Errores
     def reportar_error(self, mensaje):
-        error_completo = f"Error – Línea {self.numero_linea - 1}: {mensaje}"
+        error_completo = f"Error – Línea {self.numero_linea}: {mensaje}"
         self.errores.append(error_completo)
         print(error_completo)
 
@@ -105,7 +105,9 @@ class AnalizadorCodigo:
         match = re.match(r'\b(\w+)\s*=\s*(.+);', linea)
         if match:
             nombre, valor = match.groups()
-            simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
+            # Buscar primero en el alcance actual, luego en el global
+            simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual) or \
+                      self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
             if simbolo:
                 tipo_esperado = simbolo['tipo']
                 tipo_valor = self.determinar_tipo(valor)
@@ -120,8 +122,11 @@ class AnalizadorCodigo:
         if match_func:
             tipo_retorno, nombre_funcion, parametros = match_func.groups()
             if tipo_retorno in self.tipos_variables:
-                if self.tabla_simbolos.buscar_simbolo(nombre_funcion):
-                    self.reportar_error(f"Nombre de función '{nombre_funcion}' ya declarado.")
+                if not self.tabla_simbolos.buscar_simbolo(nombre_funcion):
+                    self.tabla_simbolos.agregar_simbolo(nombre_funcion, {'tipo': tipo_retorno, 'es_funcion': True},
+                                                        alcance=nombre_funcion)
+                    self.validar_parametros_funcion(parametros, alcance=nombre_funcion)
+                    self.tabla_simbolos.entrar_alcance(nombre_funcion)
                 else:
                     self.tabla_simbolos.agregar_simbolo(nombre_funcion, {'tipo': tipo_retorno, 'es_funcion': True})
                     self.validar_parametros_funcion(parametros)
@@ -133,13 +138,14 @@ class AnalizadorCodigo:
             return tipo_retorno  # Devuelve el tipo de retorno
         return None  # Devuelve None si no se encontró una declaración de función
 
-    def validar_parametros_funcion(self, parametros):
+    def validar_parametros_funcion(self, parametros, alcance):
         for param in parametros.split(','):
             if param.strip():
                 tipo, nombre = [p.strip() for p in param.split()]
-                if tipo not in self.tipos_variables:
+                if tipo in self.tipos_variables:
+                    self.tabla_simbolos.agregar_simbolo(nombre, tipo, alcance)
+                else:
                     self.reportar_error(f"Tipo de parámetro '{tipo}' no reconocido en la función.")
-                self.tabla_simbolos.agregar_simbolo(nombre, tipo)
 
     def verificar_retorno_funcion(self):
         if self.tipo_retorno_funcion_actual != 'void':
@@ -169,11 +175,9 @@ class AnalizadorCodigo:
     def determinar_tipo(self, valor):
         valor = valor.strip()
 
-        # Manejo de números enteros
+        # Manejo de números enteros y flotantes
         if valor.isdigit():
             return 'int'
-
-        # Manejo de números flotantes
         elif re.match(r'^\d+\.\d+$', valor):
             return 'float'
 
@@ -181,19 +185,35 @@ class AnalizadorCodigo:
         elif re.match(r'^".*"$', valor) or re.match(r"^'.*'$", valor):
             return 'string'
 
-        # Manejo de variables y expresiones
-        else:
-            # Descomponer la expresión en tokens
-            tokens = valor.split()
+        # Manejo de expresiones aritméticas
+        if any(op in valor for op in ['+', '-', '*', '/']):
+            # Analiza cada token en la expresión
+            tokens = re.findall(r'\b\w+\b', valor)
+            tipos = []
             for token in tokens:
-                if token.isidentifier():
+                if token.isdigit():
+                    tipos.append('int')
+                elif re.match(r'^\d+\.\d+$', token):
+                    tipos.append('float')
+                else:
                     simbolo = self.tabla_simbolos.buscar_simbolo(token)
                     if simbolo:
-                        # Retornar el tipo del primer token que sea una variable identificada
-                        return simbolo['tipo']
-            # Añadir más lógica según sea necesario
+                        tipos.append(simbolo['tipo'])
 
-        return 'unknown'
+            # Determina el tipo de la expresión basado en los tipos de los operandos
+            if 'float' in tipos:
+                return 'float'
+            elif 'int' in tipos:
+                return 'int'
+            else:
+                return 'desconocido'
+
+        # Manejo de variables
+        simbolo = self.tabla_simbolos.buscar_simbolo(valor)
+        if simbolo:
+            return simbolo['tipo']
+
+        return 'desconocido'
 
     def verificar_uso_variable(self, nombre):
         simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
