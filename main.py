@@ -21,6 +21,9 @@ def main():
     analizador = AnalizadorCodigo()
     analizador.analizar_codigo_fuente(archivo)
 
+    print("Tabla de Símbolos:")
+    analizador.tabla_simbolos.mostrar_tabla()
+
 
 if __name__ == "__main__":
     main()
