@@ -4,30 +4,35 @@ class TablaSimbolos:
         self.alcance_actual = 'global'
         self.historial_alcances = [self.alcance_actual]
 
-    def agregar_simbolo(self, nombre, tipo,
-                        alcance=None):  # Metodo que agrega un simbolo a la tabla, para mantener el registro de nombres/tipos/funciones
+    # Metodo que agrega un simbolo a la tabla, para mantener el registro de nombres/tipos/funciones
+    def agregar_simbolo(self, nombre, tipo, alcance=None):
         if alcance is None:
             alcance = self.alcance_actual
-        if nombre in self.simbolos and self.simbolos[nombre]['alcance'] == alcance:
-            print(f"Ya existe el simbolo '{nombre}' en '{alcance}'")
-        self.simbolos[nombre] = {'tipo': tipo, 'alcance': alcance}
+        self.simbolos[(nombre, alcance)] = {'tipo': tipo, 'alcance': alcance}
 
-    def buscar_simbolo(self, nombre, alcance=None):  # Busca el simbolo por medio de nombre y alcance
+    def buscar_simbolo(self, nombre, alcance=None):
         if alcance is None:
             alcance = self.alcance_actual
-            # Buscar en el alcance actual y luego en los globales
-        simbolo = self.simbolos.get(nombre, None)
-        if simbolo and simbolo['alcance'] == alcance:
+
+        # Primero busca en el alcance actual
+        simbolo = self.simbolos.get((nombre, alcance))
+        if simbolo:
             return simbolo
-        elif simbolo and alcance != 'global' and simbolo['alcance'] == 'global':
-            return simbolo
+
+        # Si no lo encuentra y no está en el alcance global, busca en el alcance global
+        if alcance != 'global':
+            simbolo_global = self.simbolos.get((nombre, 'global'))
+            if simbolo_global:
+                return simbolo_global
+
         return None
 
     def eliminar_simbolo(self, nombre, alcance=None):
         if alcance is None:
             alcance = self.alcance_actual
-        if nombre in self.simbolos and self.simbolos[nombre]['alcance'] == alcance:
-            del self.simbolos[nombre]
+        clave = (nombre, alcance)
+        if clave in self.simbolos:
+            del self.simbolos[clave]
 
     def entrar_alcance(self, nuevo_alcance):
         self.historial_alcances.append(nuevo_alcance)
@@ -42,9 +47,9 @@ class TablaSimbolos:
 
     def mostrar_tabla(self):
         print("Tabla de Símbolos:")
-        print("{:<20} {:<10} {:<10}".format("Nombre", "Tipo", "Alcance"))
-        print("=" * 40)
-        for nombre, info in self.simbolos.items():
-            tipo = str(info['tipo'])
-            alcance = str(info['alcance'])
-            print("{:<20} {:<10} {:<10}".format(nombre, tipo, alcance))
+        print("{:<20} {:<15} {:<10}".format("Nombre", "Tipo", "Alcance"))
+        print("=" * 45)
+        for (nombre, alcance), info in self.simbolos.items():
+            # Extraer el tipo de forma adecuada, dependiendo de si es una función o no
+            tipo = info['tipo'] if isinstance(info['tipo'], str) else f"Función ({info['tipo']['tipo']})"
+            print("{:<20} {:<15} {:<10}".format(nombre, tipo, alcance))

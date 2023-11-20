@@ -6,6 +6,7 @@ from utilidades import UtilidadesArchivo
 
 class AnalizadorCodigo:
     tipos_variables = {'void', 'int', 'float', 'string'}
+    palabras_reservadas = {'if', 'else', 'while', 'return'}
 
     def __init__(self):
         self.errores = []
@@ -29,7 +30,6 @@ class AnalizadorCodigo:
                        mensaje):  # Metodo que muestra cada linea de error que contiene un codigo provisto en formato .txt
         error_completo = f"Error – Linea {self.numero_linea}: {mensaje}"
         self.errores.append(error_completo)
-        print(error_completo)  # Muestra la linea de errores como si fuera un stringstream
 
     def obtener_tipo_funcion(self,
                              file_name):  # Obtiene el tipo de dato de la funcion general (basado en los 4 datos pre-establecidos)
@@ -72,9 +72,13 @@ class AnalizadorCodigo:
                 self.tipo_retorno_funcion_actual = None
                 self.lineas_funcion_actual = []
             else:
+                self.verificar_uso_variable_dentro_funcion(
+                    linea)  # Verificar el uso de variables no declaradas dentro de la función
                 self.analizar_estructura_control(linea)
                 self.analizar_asignacion(linea)
         else:  # Si no esta en el cuerpo de una funcion, esta leyendo fuera de una funcion (ejemplo para variables globales)
+            self.verificar_uso_variable_global(
+                linea)  # Verificar si se usa una variable no declarada antes de su declaración
             tipo_retorno = self.analizar_declaracion_funcion(linea)
             if tipo_retorno:
                 self.en_funcion = True
@@ -82,6 +86,27 @@ class AnalizadorCodigo:
                 self.lineas_funcion_actual = [linea.strip()]
 
             self.analizar_declaracion_variable(linea)  # Analiza las variables existentes en el codigo
+
+    def verificar_uso_variable_dentro_funcion(self, linea):
+        palabras = linea.split()
+        for palabra in palabras:
+            if palabra.isidentifier() and palabra not in self.tipos_variables and palabra not in self.palabras_reservadas:
+                # Verificar en el alcance actual primero, luego en el global
+                simbolo = self.tabla_simbolos.buscar_simbolo(palabra, alcance=self.tabla_simbolos.alcance_actual) or \
+                          self.tabla_simbolos.buscar_simbolo(palabra, alcance='global')
+                if not simbolo:
+                    self.reportar_error(f"Variable '{palabra}' no ha sido declarada en el alcance actual o global")
+                    break
+
+    def verificar_uso_variable_global(self, linea):
+        palabras = linea.split()
+        for palabra in palabras:
+            if palabra.isidentifier():
+                # Verificar si la palabra es una variable y no una palabra reservada
+                if palabra not in self.tipos_variables and not self.tabla_simbolos.buscar_simbolo(palabra,
+                                                                                                  alcance='global'):
+                    self.reportar_error(f"Variable '{palabra}' no está declarada")
+                    break
 
     def analizar_estructura_control(self, linea):
         """Analiza las estructuras de control (if y while), que son sentencias condicionales reservadas
@@ -92,40 +117,53 @@ class AnalizadorCodigo:
         if condicion_match:
             condicion = condicion_match.group(1)
             for var in condicion.split():
-                if var.isidentifier() and not self.tabla_simbolos.buscar_simbolo(var):
-                    self.reportar_error(f"La variable '{var}' no ha sido declarada")
+                if var.isidentifier():
+                    # Buscar primero en el alcance actual, luego en el global
+                    simbolo = self.tabla_simbolos.buscar_simbolo(var, alcance=self.tabla_simbolos.alcance_actual) or \
+                              self.tabla_simbolos.buscar_simbolo(var, alcance='global')
+                    if not simbolo:
+                        self.reportar_error(f"La variable '{var}' no ha sido declarada")
 
     def analizar_declaracion_variable(self, linea):
-        """Analiza las variables que se encuentren en el texto y determina si coinciden con lo que se encuentra guardado
-        en la tabla de simbolos. En otras palabras, lee el nombre y tipo de una variable (ej. int variable)
-        Si reconoce la variable, lo agrega a la tabla de simbolos
-        reportar_error: Si el tipo de variable leido no esta contemplado en la tabla de simbolos o no fue declarado"""
+        """ Analiza las variables que se encuentren en el texto y determina si coinciden con lo que se encuentra guardado
+        en la tabla de símbolos. En otras palabras, lee el nombre y tipo de una variable (ej. int variable).
+        Si reconoce la variable, la agrega a la tabla de símbolos.
+        reportar_error: Si el tipo de variable leído no está contemplado en la tabla de símbolos o no fue declarado.
+        """
         match_var = re.match(r'\b(\w+)\s+(\w+);', linea)
         if match_var:
             tipo, nombre = match_var.groups()
             if tipo in self.tipos_variables:
-                self.tabla_simbolos.agregar_simbolo(nombre, tipo)
+                # Verificar si la variable ya ha sido declarada en el mismo alcance
+                if not self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual):
+                    # Agregar la variable con el alcance actual
+                    self.tabla_simbolos.agregar_simbolo(nombre, tipo, alcance=self.tabla_simbolos.alcance_actual)
+                else:
+                    self.reportar_error(f"Variable '{nombre}' ya declarada en el alcance actual.")
             else:
-                self.reportar_error(f"El tipo '{tipo}' no se reconoce '{nombre}'.")
+                self.reportar_error(f"El tipo '{tipo}' no se reconoce para '{nombre}'.")
 
     def analizar_asignacion(self, linea):
-        """Maneja las asignaciones de variables en el codigo y determina si las variables tienen valores existentes
-        Por ejemplo (string variable = "Birra"), en este caso agarra la informacion "Birra", porque ya tiene la informacion del nombre y tipo de variable
+        """ Maneja las asignaciones de variables en el código y determina si las variables tienen valores existentes.
+        Por ejemplo, en 'string variable = "Birra"', esta línea agarra la información "Birra", porque ya tiene la información del nombre y tipo de variable.
 
-        self.reportar_error: Si la informacion asignada a la variable no coincide con el tipo de dato
+        self.reportar_error: Si la información asignada a la variable no coincide con el tipo de dato.
         """
         match = re.match(r'\b(\w+)\s*=\s*(.+);', linea)
         if match:
             nombre, valor = match.groups()
-            # Es necesario buscar primero en el alcance actual, luego en el global
-            simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual) or \
-                      self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
+            # Buscar primero en el alcance actual
+            simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual)
+            # Si no se encuentra en el alcance actual, buscar en el alcance global
+            if not simbolo:
+                simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
+
             if simbolo:
                 tipo_esperado = simbolo['tipo']
                 tipo_valor = self.determinar_tipo(valor)
                 if tipo_valor != tipo_esperado:
                     self.reportar_error(
-                        f"Tipo incorrecto asignado para '{nombre}'. Se esperaba: {tipo_esperado}, y se encontro: {tipo_valor}")
+                        f"Tipo incorrecto asignado para '{nombre}'. Se esperaba: {tipo_esperado}, y se encontró: {tipo_valor}")
             else:
                 self.reportar_error(f"Variable '{nombre}' no declarada.")
 
@@ -144,7 +182,6 @@ class AnalizadorCodigo:
                     self.validar_parametros_funcion(parametros, alcance=nombre_funcion)
                     self.tabla_simbolos.entrar_alcance(nombre_funcion)
                 else:
-                    self.tabla_simbolos.agregar_simbolo(nombre_funcion, {'tipo': tipo_retorno, 'es_funcion': True})
                     self.validar_parametros_funcion(parametros)  # Valida los parametros de la funcion
                     self.tabla_simbolos.entrar_alcance(nombre_funcion)
                     self.en_funcion = True
@@ -252,14 +289,20 @@ class AnalizadorCodigo:
         """Verifica si una variable ha sido declarada y si estáadentro del alcance correcto.
         not simbolo: Si el simbolo no fue encontrado en la tabla, la variable no ha sido declarada
         simbolo['alcance']: Comprueba si el alcance del simbolo es el alcance actual"""
-        simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
-        if not simbolo or simbolo['alcance'] != self.tabla_simbolos.alcance_actual:
+        # Buscar primero en el alcance actual, luego en el global
+        simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual) or \
+                  self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
+
+        if not simbolo:
             self.reportar_error(f"Variable '{nombre}' no ha sido declarada o se encuentra fuera de alcance.")
 
     def verificar_tipo_variable(self, nombre, tipo):
         """Determina si el tipo de dato de la variable coincide para esta. En otras palabras, determina si la variable
         fue declarada en la tabla de simbolos"""
-        simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
+        # Buscar primero en el alcance actual, luego en el global
+        simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual) or \
+                  self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
+
         if simbolo and simbolo['tipo'] != tipo:
             self.reportar_error(
                 f"Tipo incorrecto para la variable '{nombre}'. Esperado: {tipo}, encontrado: {simbolo['tipo']}")
