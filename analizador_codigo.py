@@ -25,17 +25,21 @@ class AnalizadorCodigo:
             for error in self.errores:
                 print(error)
 
-    def reportar_error(self, mensaje):  # Metodo que muestra cada linea de error que contiene un codigo provisto en formato .txt
+    def reportar_error(self,
+                       mensaje):  # Metodo que muestra cada linea de error que contiene un codigo provisto en formato .txt
         error_completo = f"Error – Linea {self.numero_linea}: {mensaje}"
         self.errores.append(error_completo)
         print(error_completo)  # Muestra la linea de errores como si fuera un stringstream
 
-    def obtener_tipo_funcion(self, file_name):  # Obtiene el tipo de dato de la funcion general (basado en los 4 datos pre-establecidos)
+    def obtener_tipo_funcion(self,
+                             file_name):  # Obtiene el tipo de dato de la funcion general (basado en los 4 datos pre-establecidos)
         try:
             contenido = UtilidadesArchivo.leer_archivo(file_name)  # Lee el contenido del archivo de texto
-            match = re.search(r'\b(\w+)\s+\w+\([^)]*\)\s*{', contenido)  # Expresion regular para capturar el tipo de retorno
+            match = re.search(r'\b(\w+)\s+\w+\([^)]*\)\s*{',
+                              contenido)  # Expresion regular para capturar el tipo de retorno
             if match:
-                return match.group(1)  # Devuelve el contenido de la primera parte del codigo, que coincide con el tipo de dato de la funcion
+                return match.group(
+                    1)  # Devuelve el contenido de la primera parte del codigo, que coincide con el tipo de dato de la funcion
             else:
                 return "No se pudo determinar el tipo de funcion"
         except FileNotFoundError:  # En caso de que no exista un archivo con ese nombre
@@ -43,7 +47,8 @@ class AnalizadorCodigo:
         except Exception as e:
             return f"No se pudo leer correctamente el archivo: {e}"
 
-    def analizar_declaraciones(self, file_name):  # Lee y analiza cada linea individualmente utilizando un split, utiliza el metodo analizar_linea
+    def analizar_declaraciones(self,
+                               file_name):  # Lee y analiza cada linea individualmente utilizando un split, utiliza el metodo analizar_linea
         try:
             contenido = UtilidadesArchivo.leer_archivo(file_name)
             lineas = contenido.split('\n')
@@ -92,8 +97,9 @@ class AnalizadorCodigo:
 
     def analizar_declaracion_variable(self, linea):
         """Analiza las variables que se encuentren en el texto y determina si coinciden con lo que se encuentra guardado
-        en la tabla de simbolos.
-        Si reconoce la variable, lo agrega a la tabla de simbolos"""
+        en la tabla de simbolos. En otras palabras, lee el nombre y tipo de una variable (ej. int variable)
+        Si reconoce la variable, lo agrega a la tabla de simbolos
+        reportar_error: Si el tipo de variable leido no esta contemplado en la tabla de simbolos o no fue declarado"""
         match_var = re.match(r'\b(\w+)\s+(\w+);', linea)
         if match_var:
             tipo, nombre = match_var.groups()
@@ -103,10 +109,15 @@ class AnalizadorCodigo:
                 self.reportar_error(f"El tipo '{tipo}' no se reconoce '{nombre}'.")
 
     def analizar_asignacion(self, linea):
+        """Maneja las asignaciones de variables en el codigo y determina si las variables tienen valores existentes
+        Por ejemplo (string variable = "Birra"), en este caso agarra la informacion "Birra", porque ya tiene la informacion del nombre y tipo de variable
+
+        self.reportar_error: Si la informacion asignada a la variable no coincide con el tipo de dato
+        """
         match = re.match(r'\b(\w+)\s*=\s*(.+);', linea)
         if match:
             nombre, valor = match.groups()
-            # Buscar primero en el alcance actual, luego en el global
+            # Es necesario buscar primero en el alcance actual, luego en el global
             simbolo = self.tabla_simbolos.buscar_simbolo(nombre, alcance=self.tabla_simbolos.alcance_actual) or \
                       self.tabla_simbolos.buscar_simbolo(nombre, alcance='global')
             if simbolo:
@@ -114,14 +125,18 @@ class AnalizadorCodigo:
                 tipo_valor = self.determinar_tipo(valor)
                 if tipo_valor != tipo_esperado:
                     self.reportar_error(
-                        f"Tipo incorrecto en asignación para '{nombre}'. Esperado: {tipo_esperado}, encontrado: {tipo_valor}")
+                        f"Tipo incorrecto asignado para '{nombre}'. Se esperaba: {tipo_esperado}, y se encontro: {tipo_valor}")
             else:
                 self.reportar_error(f"Variable '{nombre}' no declarada.")
 
     def analizar_declaracion_funcion(self, linea):
+        """Analiza la declaracion de funcion (indicando la primera linea), por ejemplo int funcion(int a).
+        En este caso, agarra la informacion del tipo de dato, el nombre de la funcion, y el nombre y tipo de dato de los parametros
+
+        if tipo_retorno in self.tipos_variables: Si el tipo de dato de la funcion fue declarada, guarda y agrega la informacion de la declaracion en la tabla de simbolos"""
         match_func = re.search(r'\b(\w+)\s+(\w+)\(([^)]*)\)\s*{', linea)
         if match_func:
-            tipo_retorno, nombre_funcion, parametros = match_func.groups()
+            tipo_retorno, nombre_funcion, parametros = match_func.groups()  # Extrae el tipo de dato, nombre de funcion, e info de parametros
             if tipo_retorno in self.tipos_variables:
                 if not self.tabla_simbolos.buscar_simbolo(nombre_funcion):
                     self.tabla_simbolos.agregar_simbolo(nombre_funcion, {'tipo': tipo_retorno, 'es_funcion': True},
@@ -130,23 +145,26 @@ class AnalizadorCodigo:
                     self.tabla_simbolos.entrar_alcance(nombre_funcion)
                 else:
                     self.tabla_simbolos.agregar_simbolo(nombre_funcion, {'tipo': tipo_retorno, 'es_funcion': True})
-                    self.validar_parametros_funcion(parametros)
+                    self.validar_parametros_funcion(parametros)  # Valida los parametros de la funcion
                     self.tabla_simbolos.entrar_alcance(nombre_funcion)
                     self.en_funcion = True
-                    self.tipo_retorno_funcion_actual = tipo_retorno  # Guarda el tipo de retorno de la función actual
+                    self.tipo_retorno_funcion_actual = tipo_retorno  # Guarda el tipo de dato de la funcion
             else:
-                self.reportar_error(f"Tipo de retorno de función '{tipo_retorno}' no reconocido.")
-            return tipo_retorno  # Devuelve el tipo de retorno
-        return None  # Devuelve None si no se encontró una declaración de función
+                self.reportar_error(f"Tipo de retorno de funcion '{tipo_retorno}' no se reconoce")
+            return tipo_retorno  # Devuelve el tipo de dato de la funcion
+        return None  # Si no existe declaracion de funcion
 
     def validar_parametros_funcion(self, parametros, alcance):
+        """Determina si los parametros de la funcion cumplen con un tipo de dato conocido
+        Si el tipo de dato existe en la tabla, se agregan estos parametros a la tabla de simbolos;
+        de no ser asi, manda un error indicando que no se reconoce el tipo de dato"""
         for param in parametros.split(','):
             if param.strip():
                 tipo, nombre = [p.strip() for p in param.split()]
                 if tipo in self.tipos_variables:
                     self.tabla_simbolos.agregar_simbolo(nombre, tipo, alcance)
                 else:
-                    self.reportar_error(f"Tipo de parámetro '{tipo}' no reconocido en la función.")
+                    self.reportar_error(f"El tipo de dato '{tipo}' del parametro no se reconoce")
 
     def verificar_retorno_funcion(self):
         if self.tipo_retorno_funcion_actual != 'void':
@@ -164,31 +182,46 @@ class AnalizadorCodigo:
             if not sentencia_retorno_encontrada and self.tipo_retorno_funcion_actual != 'void':
                 self.reportar_error("Función debería retornar un valor pero no se encontró una sentencia 'return'")
 
+    def validar_parametros_retorno(self, parametros):
+        # Verifica si la funcion tiene parametros, y de ser asi, determina si el tipo de retorno de la funcion es igual al del parametro
+        if parametros.strip():
+            tipos_parametros = [param.strip().split()[0] for param in parametros.split(',')]
+            for tipo_parametro in tipos_parametros:
+                if tipo_parametro != self.tipo_retorno_funcion_actual:
+                    self.reportar_error(
+                        f"Tipo de retorno no coincide con el tipo de dato del parametro. Esperado: {self.tipo_retorno_funcion_actual}, encontrado: {tipo_parametro}")
+
     def finalizar_funcion(self):
-        # Verifica el retorno de la función si es necesario
+        """Verifica el final de la funcion (junto con el tipo de retorno)
+        if self.tipo_retorno_funcion_actual != 'void': Si el tipo de dato de la funcion no es void, verifique cual es el tipo de dato de retorno"""
+        # Verificacion del tipo de retorno de la funcion
         if self.tipo_retorno_funcion_actual != 'void':
             self.verificar_retorno_funcion()
 
         # Salir del alcance actual
         self.tabla_simbolos.salir_alcance()
 
-    # Métodos de Auxiliares para Análisis
     def determinar_tipo(self, valor):
+        """Determina el valor de una funcion/variable y determina el tipo de dato asignado a este valor
+
+        if valor.isdigit(): Si el valor es un numero cualquiera, entonces es un entero
+        elif re.match(r'^\d+\.\d+$', valor): Si el valor es un numero, pero ademas tiene un . o , en la expresion, entonces es un float
+        elif re.match(r'^".*"$', valor) or re.match(r"^'.*'$", valor): Si el valor es una cadena de texto (texto escrito entre comillas "" o '')
+
+        Si el valor incluye cualquier operacion aritmetica (suma, resta, etc..), determina si el valor agregado a este operador es del mismo tipo
+
+        :return: Si existe match de la informacion, devuelve el tipo de dato leido del archivo
+        """
         valor = valor.strip()
 
-        # Manejo de números enteros y flotantes
         if valor.isdigit():
             return 'int'
         elif re.match(r'^\d+\.\d+$', valor):
             return 'float'
-
-        # Manejo de cadenas de texto
         elif re.match(r'^".*"$', valor) or re.match(r"^'.*'$", valor):
             return 'string'
 
-        # Manejo de expresiones aritméticas
         if any(op in valor for op in ['+', '-', '*', '/']):
-            # Analiza cada token en la expresión
             tokens = re.findall(r'\b\w+\b', valor)
             tipos = []
             for token in tokens:
@@ -201,15 +234,14 @@ class AnalizadorCodigo:
                     if simbolo:
                         tipos.append(simbolo['tipo'])
 
-            # Determina el tipo de la expresión basado en los tipos de los operandos
             if 'float' in tipos:
                 return 'float'
             elif 'int' in tipos:
                 return 'int'
             else:
-                return 'desconocido'
+                return 'desconocido'  # Cualquier otro dato es desconocido para el analizador semantico
+            # No existe un return 'string' porque para efectos de este problema, no se considera la suma de cadenas de texto
 
-        # Manejo de variables
         simbolo = self.tabla_simbolos.buscar_simbolo(valor)
         if simbolo:
             return simbolo['tipo']
@@ -217,12 +249,17 @@ class AnalizadorCodigo:
         return 'desconocido'
 
     def verificar_uso_variable(self, nombre):
+        """Verifica si una variable ha sido declarada y si estáadentro del alcance correcto.
+        not simbolo: Si el simbolo no fue encontrado en la tabla, la variable no ha sido declarada
+        simbolo['alcance']: Comprueba si el alcance del simbolo es el alcance actual"""
         simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
         if not simbolo or simbolo['alcance'] != self.tabla_simbolos.alcance_actual:
-            self.reportar_error(f"Variable '{nombre}' no declarada o fuera de alcance.")
+            self.reportar_error(f"Variable '{nombre}' no ha sido declarada o se encuentra fuera de alcance.")
 
     def verificar_tipo_variable(self, nombre, tipo):
+        """Determina si el tipo de dato de la variable coincide para esta. En otras palabras, determina si la variable
+        fue declarada en la tabla de simbolos"""
         simbolo = self.tabla_simbolos.buscar_simbolo(nombre)
         if simbolo and simbolo['tipo'] != tipo:
             self.reportar_error(
-                f"Tipo incorrecto para la variable '{nombre}'. Esperado: {tipo}, encontrado: {simbolo['tipo']}.")
+                f"Tipo incorrecto para la variable '{nombre}'. Esperado: {tipo}, encontrado: {simbolo['tipo']}")

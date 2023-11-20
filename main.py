@@ -11,13 +11,13 @@ from utilidades import UtilidadesArchivo
 
 
 def main():
-    # Cambiar nombre del archivo para probar diferentes casos
+    # Se puede cambiar el nombre del archivo a cualquiera existente para mostrar su funcionalidad
     archivo = "Funcion4.txt"
 
-    # Imprimir archivo para verificar la lectura correcta del archivo
+    # Este metodo es solo para mostrar el contenido del archivo y determinar que se lee correctamente
     UtilidadesArchivo.mostrar_contenido_archivo(archivo)
 
-    # Analizador Semántico
+    # Programa de analizador de codigo
     analizador = AnalizadorCodigo()
     analizador.analizar_codigo_fuente(archivo)
 
