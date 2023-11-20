@@ -79,23 +79,28 @@ class AnalizadorCodigo:
             self.analizar_declaracion_variable(linea)  # Analiza las variables existentes en el codigo
 
     def analizar_estructura_control(self, linea):
+        """Analiza las estructuras de control (if y while), que son sentencias condicionales reservadas
+        La variable condicion_match determina si existen las palabras reservadas if, while, y de ser asi
+        extrae la informacion.
+        El ciclo determina si existe un simbolo inexistente o que no ha sido declarado en el codigo"""
         condicion_match = re.search(r'if\s*\((.*)\)\s*{', linea) or re.search(r'while\s*\((.*)\)\s*{', linea)
         if condicion_match:
             condicion = condicion_match.group(1)
-            # Aquí puedes analizar la condición para verificar variables y operadores
-            # Por ejemplo, dividir la condición en partes y verificar cada variable
             for var in condicion.split():
                 if var.isidentifier() and not self.tabla_simbolos.buscar_simbolo(var):
-                    self.reportar_error(f"Variable '{var}' utilizada en la condición no está declarada")
+                    self.reportar_error(f"La variable '{var}' no ha sido declarada")
 
     def analizar_declaracion_variable(self, linea):
+        """Analiza las variables que se encuentren en el texto y determina si coinciden con lo que se encuentra guardado
+        en la tabla de simbolos.
+        Si reconoce la variable, lo agrega a la tabla de simbolos"""
         match_var = re.match(r'\b(\w+)\s+(\w+);', linea)
         if match_var:
             tipo, nombre = match_var.groups()
             if tipo in self.tipos_variables:
                 self.tabla_simbolos.agregar_simbolo(nombre, tipo)
             else:
-                self.reportar_error(f"Tipo '{tipo}' no reconocido para la variable '{nombre}'.")
+                self.reportar_error(f"El tipo '{tipo}' no se reconoce '{nombre}'.")
 
     def analizar_asignacion(self, linea):
         match = re.match(r'\b(\w+)\s*=\s*(.+);', linea)
